@@ -1,8 +1,17 @@
 import axios from "axios";
-import { redis } from "@/lib/redis";
+import express from "express";
+import { redis } from "../lib/redis.js";
 
-export default async function handler(req, res) {
+const router = express.Router();
+
+router.get("/", async (req, res) => {
   try {
+    if (!process.env.CAL_API_KEY || !process.env.CAL_EVENT_TYPE_ID) {
+      return res.status(500).json({
+        error: "Missing env variables",
+      });
+    }
+
     const { data } = await axios.get(
       "https://api.cal.com/v1/slots",
       {
@@ -17,18 +26,34 @@ export default async function handler(req, res) {
       }
     );
 
-    // 1. fetch active locks
-    const keys = await redis.keys("lock:cal-slot:*");
+    // SAFE SLOTS
+    const slots = data?.slots || [];
 
-    // 2. convert locks → blocked slots
+    // SAFE REDIS SCAN (NO KEYS)
+    let cursor = "0";
+    let keys = [];
+
+    do {
+      const reply = await redis.scan(
+        cursor,
+        "MATCH",
+        "lock:cal-slot:*",
+        "COUNT",
+        100
+      );
+
+      cursor = reply[0];
+      keys.push(...reply[1]);
+
+    } while (cursor !== "0");
+
     const lockedSlots = new Set(
       keys.map(k => k.replace("lock:cal-slot:", ""))
     );
 
-    // 3. filter availability
     const filtered = {
       ...data,
-      slots: data.slots.filter(slot => {
+      slots: slots.filter(slot => {
         return !lockedSlots.has(slot.startTime);
       }),
     };
@@ -41,4 +66,6 @@ export default async function handler(req, res) {
       details: err.message,
     });
   }
-}
+});
+
+export default router;

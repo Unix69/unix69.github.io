@@ -1,24 +1,39 @@
-import { acquireLock, releaseLock } from "@/lib/lock";
+import express from "express";
+import { acquireLock } from "../lib/lock.js";
 
-export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+const router = express.Router();
 
-  const { start } = req.body;
+router.post("/", async (req, res) => {
+  try {
+    const { start } = req.body;
 
-  const lockKey = `lock:cal-slot:${start}`;
+    if (!start) {
+      return res.status(400).json({
+        error: "Missing start time",
+      });
+    }
 
-  const { acquired, token } = await acquireLock(lockKey);
+    const lockKey = `lock:cal-slot:${start}`;
 
-  if (!acquired) {
-    return res.status(409).json({
-      error: "Slot temporarily reserved",
+    const { acquired, token } = await acquireLock(lockKey);
+
+    if (!acquired) {
+      return res.status(409).json({
+        error: "Slot temporarily reserved",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      token,
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      error: "Failed to reserve slot",
+      details: err.message,
     });
   }
+});
 
-  return res.status(200).json({
-    success: true,
-    token,
-  });
-}
+export default router;

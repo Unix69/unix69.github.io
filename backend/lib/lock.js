@@ -1,4 +1,4 @@
-import { redis } from "./redis";
+import { redis } from "./lib/redis.js";
 import { randomUUID } from "crypto";
 
 const LOCK_TTL = 20; // meglio 15–30s per booking reali

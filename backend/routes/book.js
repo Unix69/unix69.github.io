@@ -1,12 +1,12 @@
+import express from "express";
 import axios from "axios";
-import { releaseLock } from "@/lib/lock";
-import { redis } from "@/lib/redis";
 
-export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+import { releaseLock } from "../lib/lock.js";
+import { redis } from "../lib/redis.js";
 
+const router = express.Router();
+
+router.post("/", async (req, res) => {
   const {
     start,
     end,
@@ -17,20 +17,51 @@ export default async function handler(req, res) {
     idempotencyKey,
   } = req.body;
 
-  if (!idempotencyKey) {
-    return res.status(400).json({ error: "Missing idempotencyKey" });
+  /*
+  =========================================
+  BASIC VALIDATION
+  =========================================
+  */
+
+  if (
+    !start ||
+    !end ||
+    !name ||
+    !email ||
+    !title ||
+    !lockToken ||
+    !idempotencyKey
+  ) {
+    return res.status(400).json({
+      error: "Missing required fields",
+    });
   }
 
   const lockKey = `lock:cal-slot:${start}`;
+  const bookingKey = `booking:${idempotencyKey}`;
 
   try {
-    // 1. IDEMPOTENCY CHECK (fast path)
-    const existing = await redis.get(`booking:${idempotencyKey}`);
+
+    /*
+    =========================================
+    1. IDEMPOTENCY CHECK
+    =========================================
+    */
+
+    const existing = await redis.get(bookingKey);
+
     if (existing) {
-      return res.status(200).json(JSON.parse(existing));
+      return res.status(200).json(
+        JSON.parse(existing)
+      );
     }
 
-    // 2. VERIFY LOCK
+    /*
+    =========================================
+    2. VERIFY LOCK
+    =========================================
+    */
+
     const currentToken = await redis.get(lockKey);
 
     if (!currentToken || currentToken !== lockToken) {
@@ -39,7 +70,12 @@ export default async function handler(req, res) {
       });
     }
 
-    // 3. BOOK (source of truth = Cal.com)
+    /*
+    =========================================
+    3. FINAL CAL.COM BOOKING
+    =========================================
+    */
+
     const { data } = await axios.post(
       "https://api.cal.com/v1/bookings",
       {
@@ -48,18 +84,31 @@ export default async function handler(req, res) {
         end,
         title,
         timeZone: "Europe/Rome",
-        attendees: [{ name, email }],
+        attendees: [
+          {
+            name,
+            email,
+          },
+        ],
       },
       {
         headers: {
           Authorization: `Bearer ${process.env.CAL_API_KEY}`,
+          "Content-Type": "application/json",
         },
+
+        timeout: 10000,
       }
     );
 
-    // 4. SAVE IDEMPOTENCY RESULT
+    /*
+    =========================================
+    4. SAVE IDEMPOTENT RESULT
+    =========================================
+    */
+
     await redis.set(
-      `booking:${idempotencyKey}`,
+      bookingKey,
       JSON.stringify(data),
       "EX",
       60 * 60 * 24
@@ -68,13 +117,27 @@ export default async function handler(req, res) {
     return res.status(200).json(data);
 
   } catch (err) {
+
+    console.error(err?.response?.data || err.message);
+
     return res.status(500).json({
       error: "Booking failed",
-      details: err.message,
+      details:
+        err?.response?.data ||
+        err.message,
     });
 
   } finally {
-    // 5. SAFE LOCK RELEASE (IMPORTANT)
+
+    /*
+    =========================================
+    5. SAFE LOCK RELEASE
+    =========================================
+    */
+
     await releaseLock(lockKey, lockToken);
   }
-}
+});
+
+export default router;
+

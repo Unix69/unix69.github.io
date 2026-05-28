@@ -19,3 +19,5 @@ export async function acquireLock(key) {
 export async function releaseLock(key) {
   await redis.del(key);
 }
+
+
