@@ -1,0 +1,98 @@
+
+
+Profile
+
+	Name (String)
+	Surname (String)
+	Birthdate (Date)
+	Role: (String)
+	Biography (String)
+	Profile Image (img)
+	
+	Id
+		Orcid (uri)
+		P. iva (String)
+	
+	Contacts
+		GitHub (url)
+		Linkedin (url)
+		Telegram (url)	
+		Email (String)
+		Phone (String)
+
+
+	Curriculum
+		Tecnological Culture (String)
+		Experienced With
+			Languages ([String])
+			Framework ([String])
+			Platoforms
+				Hardware Platforms ([String])
+				Software Platforms ([String])
+			Tools ([String])
+		Skills
+			Soft Skills ([String])
+			Hard Skills ([(String)])
+		Capabilities ([String])
+		Work Experiences
+				[
+					(From, To (Date, Date)
+					 With (String)
+					 Role (String)
+					 Job Description (String)
+					 Results (String)
+				...]
+		Work Projects
+			Delivered Projects
+				Title (String)
+				Delivery (String)				
+				Description (String)
+				Technologies used ([String])
+			Personal Projects
+				Title (String)				
+				Scope (String)				
+				Description (String)
+				Technologies used ([String])
+		
+		Publications
+			[ (
+				Title (String)
+				Publication Date
+				Paper (pdf)), 
+			]
+
+
+		CV (pdf)
+	
+	
+	 
+	
+
+
+
+
+
+Repositories
+	Title (String)			
+	Git (url)				
+	Description (String)
+	Technologies used ([String])
+
+
+
+
+Projects
+
+Programming Course
+
+Languages
+
+Tools
+
+
+
+Manuals
+
+How To
+
+
